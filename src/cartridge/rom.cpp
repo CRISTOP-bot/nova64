@@ -1,0 +1,7 @@
+#include "nova64/cartridge/rom.hpp"
+#include <fstream>
+#include <algorithm>
+#include <stdexcept>
+namespace nova64 { static uint32_t be(const std::vector<uint8_t>&d,size_t p){return uint32_t(d[p])<<24|uint32_t(d[p+1])<<16|uint32_t(d[p+2])<<8|d[p+3];}
+RomImage RomImage::load(const std::filesystem::path& p){std::ifstream f(p,std::ios::binary);if(!f)throw std::runtime_error("No se pudo abrir la ROM: "+p.string()); RomImage r; f.seekg(0,std::ios::end);auto n=f.tellg();f.seekg(0);if(n<0x1000||n%4)throw std::runtime_error("ROM invalida: tamano insuficiente o no alineado");r.data_.resize((size_t)n);f.read(reinterpret_cast<char*>(r.data_.data()),n); uint32_t magic=be(r.data_,0); if(magic==0x40123780){for(size_t i=0;i<r.data_.size();i+=4)std::reverse(r.data_.begin()+i,r.data_.begin()+i+4);} else if(magic==0x37804012){for(size_t i=0;i<r.data_.size();i+=2)std::swap(r.data_[i],r.data_[i+1]);} else if(magic!=0x80371240)throw std::runtime_error("ROM invalida: magic N64 desconocido"); r.header_.crc1=be(r.data_,0x10);r.header_.crc2=be(r.data_,0x14);r.header_.id[0]=char(r.data_[0x3B]);r.header_.id[1]=char(r.data_[0x3C]);r.header_.id[2]=char(r.data_[0x3D]);for(size_t i=0;i<20&&0x20+i<r.data_.size();++i)r.header_.name+=char(r.data_[0x20+i]); while(!r.header_.name.empty()&&r.header_.name.back()==' ')r.header_.name.pop_back();return r;}
+uint8_t RomImage::read8(uint32_t o)const{if(o>=data_.size())throw std::out_of_range("ROM read");return data_[o];} }

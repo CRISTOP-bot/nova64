@@ -1,11 +1,31 @@
-name: Nova64 CI
-on: [push, pull_request]
-jobs:
- build:
-  runs-on: ubuntu-latest
-  steps:
-   - uses: actions/checkout@v4
-   - name: Build
-     run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug && cmake --build build --parallel
-   - name: Tests
-     run: ctest --test-dir build --output-on-failure
+cmake_minimum_required(VERSION 3.20)
+project(Nova64 VERSION 0.1.0 LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+option(NOVA64_BUILD_TESTS "Build tests" ON)
+option(NOVA64_BUILD_TOOLS "Build tools" ON)
+option(NOVA64_ENABLE_SDL "Enable SDL frontend" OFF)
+
+add_library(nova64_core
+ src/cpu/cpu.cpp src/cpu/cp0.cpp src/memory/rdram.cpp src/memory/mmio.cpp
+ src/bus/bus.cpp src/cartridge/rom.cpp src/core/machine.cpp src/mmu/tlb.cpp src/mmu/mmu.cpp)
+target_include_directories(nova64_core PUBLIC include)
+target_compile_options(nova64_core PRIVATE -Wall -Wextra -Wpedantic)
+add_executable(nova64 src/main.cpp)
+target_link_libraries(nova64 PRIVATE nova64_core)
+if(NOVA64_BUILD_TOOLS)
+ add_executable(nova64-disasm src/tools_disasm.cpp)
+ target_link_libraries(nova64-disasm PRIVATE nova64_core)
+endif()
+if(NOVA64_BUILD_TESTS)
+ enable_testing()
+ add_executable(nova64-tests tests/test_main.cpp)
+ target_link_libraries(nova64-tests PRIVATE nova64_core)
+ add_test(NAME nova64-tests COMMAND nova64-tests)
+endif()
+if(NOVA64_ENABLE_SDL)
+ find_package(SDL2 REQUIRED)
+ target_compile_definitions(nova64 PRIVATE NOVA64_HAS_SDL=1)
+ target_link_libraries(nova64 PRIVATE SDL2::SDL2)
+endif()

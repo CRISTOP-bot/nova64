@@ -1,0 +1,33 @@
+name: Nova64 Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNOVA64_BUILD_TESTS=ON
+      - name: Build
+        run: cmake --build build --parallel
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+      - name: Package source and binaries
+        run: |
+          mkdir -p dist/nova64/bin
+          cp build/nova64 build/nova64-disasm dist/nova64/bin/
+          cp README.md LICENSE CHANGELOG.md ARCHITECTURE.md dist/nova64/
+          tar -C dist -czf "nova64-${GITHUB_REF_NAME}-linux-x86_64.tar.gz" nova64
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: nova64-${{ github.ref_name }}-linux-x86_64.tar.gz
